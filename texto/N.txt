@@ -1,0 +1,48 @@
+
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Avatar, Button, Card, Text } from 'react-native-paper';
+
+const LeftContent = props => <Avatar.Icon {...props} icon="folder" />
+
+export default function Notidicacao() {
+  return (
+    <ScrollView style={styles.container}>
+      <Card style={styles.notification}>
+        <Card.Content>
+          <Text variant="titleLarge">Oferta par para os gamers de xbox</Text>
+          <Text variant="bodyMedium">até 29/7/2024</Text>
+        </Card.Content>
+        <Card.Cover style={styles.imagePromotion} source={{ uri: 'https://s3.amazonaws.com/xboxpower-wp/wp-content/uploads/2019/07/1078x512-XSGS-19-featured-1078x512.jpg' }} />
+        <Card.Actions>
+          <Button>Fechar</Button>
+          <Button>Abrir</Button>
+        </Card.Actions>
+      </Card>
+
+      <Card style={styles.notification}>
+        <Card.Content>
+          <Text variant="titleLarge">Oferta par para os gamers de playstation</Text>
+          <Text variant="bodyMedium">até 30/12/2024</Text>
+        </Card.Content>
+        <Card.Cover style={styles.imagePromotion} source={{ uri: 'https://blog.br.playstation.com/tachyon/sites/4/2021/12/562026d90af36ede06d3c91158d3f551a20b3e63.png?resize=1088%2C612&crop_strategy=smart&zoom=1' }} />
+        <Card.Actions>
+          <Button>Fechar</Button>
+          <Button>Abrir</Button>
+        </Card.Actions>
+      </Card>
+    </ScrollView >
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  imagePromotion:{
+    padding: '0.5em',
+    width: '24em',
+    height: '13em',
+  },
+  
+});

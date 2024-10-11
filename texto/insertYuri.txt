@@ -1,0 +1,36 @@
+async function insertUpdate() {
+   try {
+      // Verificando se todos os campos obrigatórios foram preenchidos
+      if (name && plataforms && gender && studio && price) {
+        // Referência para a coleção "games"
+        const productsCollectionRef = collection(db, 'games');
+        
+        // Dados do produto a serem inseridos
+        const productData = {
+          name: name,
+          platforms: plataforms,
+          gender: gender,
+          studio: studio,
+          price: price
+        };
+  
+        // Adicionando os dados à coleção "games"
+        const newProductRef = await addDoc(productsCollectionRef, productData);
+  
+        console.log("Produto inserido com sucesso! Document ID:", newProductRef.id);
+  
+        setSnackbarMessage('Produto inserido!');
+        setSnackbarVisible(true);
+        clearData(); // Limpar os campos após a inserção
+      } else {
+        // Se algum campo estiver vazio, exibir uma mensagem de erro
+        setSnackbarMessage('Preencha todos os campos obrigatórios!');
+        setSnackbarVisible(true);
+      }
+    } catch (error) {
+      // Lidar com erros durante a inserção
+      console.error("Erro ao inserir produto:", error);
+      setSnackbarMessage('Erro ao inserir produto!');
+      setSnackbarVisible(true);
+    }
+  }

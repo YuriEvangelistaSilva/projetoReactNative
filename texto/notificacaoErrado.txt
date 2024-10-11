@@ -1,0 +1,118 @@
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, View, Animated } from 'react-native';
+import { Card, Text, Snackbar, Portal, Button, TextInput, Provider as PaperProvider } from 'react-native-paper';
+
+export default function Notificacoes() {
+  const [notifications, setNotifications] = useState([]);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [progress] = useState(new Animated.Value(0)); // Começa em 0 para diminuir da esquerda para a direita
+  const [notificationText, setNotificationText] = useState('');
+
+  const handleAddNotification = () => {
+    if (notificationText.trim() !== '') {
+      const newNotification = notificationText;
+      setNotifications([...notifications, newNotification]);
+      setSnackbarMessage(newNotification);
+      setSnackbarVisible(true);
+      setNotificationText('');
+
+      Animated.timing(progress, {
+        toValue: 1, 
+        duration: 9000, 
+        useNativeDriver: false,
+      }).start(() => {
+        setSnackbarVisible(false);
+        progress.setValue(0); 
+      });
+    }
+  };
+
+  return (
+    <PaperProvider>
+      <View style={styles.container}>
+        <View style={styles.form}>
+          <TextInput
+            placeholder="Digite a notificação"
+            value={notificationText}
+            onChangeText={setNotificationText}
+            style={styles.input}
+          />
+          <Button mode="contained" onPress={handleAddNotification}>
+            Adicionar Notificação
+          </Button>
+        </View>
+        <ScrollView>
+          {notifications.map((notification, index) => (
+            <Card key={index} style={styles.card}>
+              <Card.Title title="Notificação" />
+              <Card.Content>
+                <Text>{notification}</Text>
+              </Card.Content>
+            </Card>
+          ))}
+        </ScrollView>
+        <Portal>
+          <Snackbar
+            visible={snackbarVisible}
+            onDismiss={() => setSnackbarVisible(false)}
+            duration={Snackbar.DURATION_LONG} // Duração aumentada para 15 segundos
+            style={styles.snackbar}
+            wrapperStyle={styles.snackbarWrapper}
+          >
+            <View style={styles.snackbarContent}>
+              <Text>{snackbarMessage}</Text>
+              <Animated.View
+                style={[
+                  styles.progressBar,
+                  {
+                    width: progress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['100%', '0%'], // Agora diminui da esquerda para a direita
+                    }),
+                  },
+                ]}
+              />
+            </View>
+          </Snackbar>
+        </Portal>
+      </View>
+    </PaperProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 20,
+  },
+  form: {
+    marginBottom: 20,
+  },
+  input: {
+    marginBottom: 10,
+  },
+  card: {
+    marginVertical: 10,
+  },
+  snackbarWrapper: {
+    top: 0,
+  },
+  snackbar: {
+    position: 'absolute',
+    width: '100%',
+    backgroundColor: 'white',
+    borderColor: 'purple',
+    borderWidth: 2,
+  },
+  snackbarContent: {
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  progressBar: {
+    height: 2,
+    backgroundColor: 'red',
+    marginTop: 5,
+  },
+});

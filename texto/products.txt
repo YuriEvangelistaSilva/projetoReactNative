@@ -1,0 +1,370 @@
+
+import React, { useState, useEffect, useRef } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Keyboard, FlatList, ActivityIndicator, TextInput, Picker } from "react-native";
+import { DataTable, Button, IconButton, Menu, Divider, Provider, MD3LightTheme as DefaultTheme,
+  PaperProvider, Dialog, Portal, Snackbar } from 'react-native-paper';
+import firebase from "../services/connectionFirebase";
+import { ScrollView } from "react-native-web";
+
+const Separator = () => {
+  return <View style={styles.separator} />;
+};
+
+const theme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: '#F6AA43', // Cor primária
+  },
+};
+
+export default function Products() {
+  const [name, setName] = useState("");
+  const [brand, setBrand] = useState("");
+  const [type, setType] = useState("");
+  const [price, setPrice] = useState("");
+  const [key, setKey] = useState('');
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [visible, setVisible] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [page, setPage] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [orderBy, setOrderBy] = useState('name'); // Default order by name
+  const [visibleTipoDialog, setVisibleTipoDialog] = useState(false);
+  const [showWarningIcon, setShowWarningIcon] = useState(false);
+
+  const snackbarStyle = {
+    backgroundColor: theme.colors.primary,
+    opacity: 0.9,  
+  };
+  const snackbarButtonTextStyle = {
+    color: '#FFF',  
+  };
+  
+  
+  const inputRef = useRef(null);
+
+  const from = page * itemsPerPage;
+  const to = (page + 1) * itemsPerPage;
+  const paginatedProducts = products.slice(from, to);
+
+  useEffect(() => {
+    async function search() {
+      await firebase.database().ref('products').on('value', (snapshot) => {
+        setProducts([]);
+        snapshot.forEach((chilItem) => {
+          let data = {
+            key: chilItem.key,
+            name: chilItem.val().name,
+            brand: chilItem.val().brand,
+            type: chilItem.val().type,
+            price: chilItem.val().price,
+          };
+          setProducts(oldArray => [...oldArray, data].reverse());
+        })
+        setLoading(false);
+      })
+    }
+    search();
+  }, []);
+
+  useEffect(() => {
+    const sortedProducts = [...products].sort((a, b) => {
+      if (a[orderBy] < b[orderBy]) return -1;
+      if (a[orderBy] > b[orderBy]) return 1;
+      return 0;
+    });
+    setProducts(sortedProducts);
+  }, [orderBy]);
+
+  async function insertUpdate() {
+    if (name !== '' && brand !== '' && type !== '' && price !== '') {
+      if (key !== '') {
+        // Atualização se a chave estiver presente
+        firebase.database().ref('products').child(key).update({
+          name: name, 
+          brand: brand,
+          type: type, 
+          price: price
+        })
+        Keyboard.dismiss();
+        setSnackbarMessage('Produto alterado!');
+        setSnackbarVisible(true);
+        clearData();
+        setKey('');
+        return;
+      } else {
+        // Inserção se a chave estiver vazia
+        let productsDatabase = await firebase.database().ref("products");
+        let productKey = productsDatabase.push().key;
+        productsDatabase.child(productKey).set({
+          name: name,
+          brand: brand,
+          type: type,
+          price: price
+        });
+        setSnackbarMessage('produto inserido!');
+        setSnackbarVisible(true);
+        clearData();
+      }
+    } else {
+      // Se algum campo estiver vazio, ative o estado para mostrar o ícone de aviso temporariamente
+      setShowWarningIcon(true);
+      setTimeout(() => {
+        // Desative o estado após alguns segundos
+        setShowWarningIcon(false);
+      }, 3000); // Tempo em milissegundos
+      // Exiba uma mensagem de erro para o usuário indicando os campos vazios
+      setSnackbarMessage('Preencha todos os campos obrigatórios!');
+      setSnackbarVisible(true);
+    }
+  }
+
+  function handleDelete(key) {
+    setSelectedProduct(key);
+    setVisible(true);
+  }
+
+  function handleEdit(data) {
+      setKey(data.key),
+      setName(data.name),
+      setBrand(data.brand),
+      setType(data.type),
+      setPrice(data.price)
+  }
+
+  function clearData() {
+    setName('');
+    setBrand('');
+    setType('');
+    setPrice('');
+  }
+
+  function confirmDelete() {
+    firebase.database().ref('products').child(selectedProduct).remove()
+      .then(() => {
+        const findProducts = products.filter(item => item.key !== selectedProduct)
+        setProducts(findProducts)
+        setVisible(false);
+      })
+  }
+
+  function closeMenu() {
+    const updatedProducts = products.map(p => p.visible ? { ...p, visible: false } : p);
+    setProducts(updatedProducts);
+  }
+
+  const handlePageChange = (pageNumber) => {
+    setPage(pageNumber);
+  };
+
+  const handleOrderByChange = (value) => {
+    setOrderBy(value);
+  };
+
+  return (
+    <PaperProvider theme={theme}>
+      <ScrollView style={styles.container}>
+        <TextInput
+          placeholder="Smartphone"
+          maxLength={40}
+          style={[styles.input, showWarningIcon && !name && styles.inputWithError]}
+          onChangeText={(texto) => setName(texto)}
+          value={name}
+          ref={inputRef}
+        />
+        <Separator />
+        <TextInput
+          placeholder="Marca"
+          style={styles.input}
+          onChangeText={(texto) => setBrand(texto)}
+          value={brand}
+          ref={inputRef}
+        />
+        <Separator />
+        <TextInput
+          placeholder="Tipo"
+          style={styles.input}
+          onChangeText={(texto) => setType(texto)}
+          value={type}
+          ref={inputRef}
+        />
+        <Separator />
+        <TextInput
+          placeholder="Preço"
+          style={styles.input}
+          onChangeText={(texto) => setPrice(texto)}
+          value={price}
+          ref={inputRef}
+        />
+        <Separator />
+        <Button mode="contained" onPress={insertUpdate}>Salvar</Button>
+        <Separator />
+        <Separator />
+        <View style={styles.orderByContainer}>
+  <Text style={styles.listar}>Listar Produtos</Text>
+  <Picker
+    selectedValue={orderBy}
+    style={styles.picker}
+    onValueChange={(itemValue) => handleOrderByChange(itemValue)}
+    itemStyle={styles.pickerItem}
+  >
+    <Picker.Item label="Ordenar por Nome" value="name" />
+    <Picker.Item label="Ordenar por Marca" value="brand" />
+    <Picker.Item label="Ordenar por Tipo" value="type" />
+    <Picker.Item label="Ordenar por Preço" value="price" />
+  </Picker>
+  
+
+        </View>
+        
+        {loading ? (
+          <ActivityIndicator color="#F6AA43" size={45} />
+        ) : (
+          <>
+            <DataTable style={styles.table}>
+              <DataTable.Header>
+                <DataTable.Title>Nome</DataTable.Title>
+                <DataTable.Title>Marca</DataTable.Title>
+                <DataTable.Title>Tipo</DataTable.Title>
+                <DataTable.Title>Preço</DataTable.Title>
+                <DataTable.Title>Ações</DataTable.Title>
+              </DataTable.Header>
+
+              {paginatedProducts.map((product) => (
+                <DataTable.Row key={product.key}>
+                  <DataTable.Cell>{product.name}</DataTable.Cell>
+                  <DataTable.Cell>{product.brand}</DataTable.Cell>
+                  <DataTable.Cell>{product.type}</DataTable.Cell>
+                  <DataTable.Cell>{product.price}</DataTable.Cell>
+                  <DataTable.Cell>
+                    <Menu
+                      visible={product.visible || false}
+                      onDismiss={() => handleMenuDismiss(product)}
+                      anchor={<IconButton icon="dots-vertical" onPress={() => handleMenuPress(product)} />}
+                    >
+                      <Menu.Item leadingIcon="pencil" onPress={() => { handleEdit(product); closeMenu(); }} title="Editar" />
+                      <Menu.Item leadingIcon="delete" onPress={() => { handleDelete(product.key); closeMenu(); }} title="Excluir" />
+                    </Menu>
+                  </DataTable.Cell>
+                </DataTable.Row>
+              ))}
+
+              <DataTable.Pagination
+                page={page}
+                numberOfPages={Math.ceil(products.length / itemsPerPage)}
+                onPageChange={handlePageChange}
+                label={`${from + 1}-${to} de ${products.length}`}
+                numberOfItemsPerPageList={[5, 10, 15, 20]}
+                numberOfItemsPerPage={itemsPerPage}
+                onItemsPerPageChange={setItemsPerPage}
+                showFastPaginationControls
+                selectPageDropdownLabel={'Linhas por página'}
+              />
+            </DataTable>
+          </>
+        )}
+
+        <Portal>
+          <Dialog visible={visible} onDismiss={() => setVisible(false)}>
+            <Dialog.Title>Confirmar Exclusão</Dialog.Title>
+            <Dialog.Content>
+              <Text>Deseja realmente excluir este produto?</Text>
+            </Dialog.Content>
+            <Dialog.Actions>
+              <Button onPress={() => setVisible(false)}>Cancelar</Button>
+              <Button onPress={confirmDelete}>Confirmar</Button>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
+        </ScrollView>
+        <Snackbar 
+  visible={snackbarVisible}
+  onDismiss={() => setSnackbarVisible(false)}
+  action={{
+    label: 'OK',
+    onPress: () => {
+      setSnackbarVisible(false);
+    },
+    labelStyle: snackbarButtonTextStyle,
+  }}
+  style={snackbarStyle}  
+
+>
+  {snackbarMessage}
+</Snackbar>
+      
+    </PaperProvider>
+    
+  );
+
+  function handleMenuPress(product) {
+    const updatedProducts = products.map(p => p.key === product.key ? { ...p, visible: true } : p);
+    setProducts(updatedProducts);
+  }
+
+  function handleMenuDismiss(product) {
+    const updatedProducts = products.map(p => p.key === product.key ? { ...p, visible: false } : p);
+    setProducts(updatedProducts);
+  }
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    margin: 10,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#121212',
+    fontSize: 13,
+    borderRadius: 8,
+    marginBottom: 5,
+    marginTop: 5,
+    backgroundColor: "#FFF",
+    borderRadius: 6,
+    height: 45,
+    padding: 10,
+    placeholderTextColor: "#A9A9A9",
+    alignItems: "center",
+  },
+  separator: {
+    marginVertical: 5,
+  },
+  table: {
+    marginBottom: 20,
+    textColor:'Black',
+  },
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F6AA43',
+    borderWidth: 0.5,
+    borderColor: '#fff',
+    height: 40,
+    borderRadius: 5,
+    margin: 5,
+  },
+  buttonTextStyle: {
+    color: '#fff',
+    marginBottom: 4,
+    marginLeft: 130,
+    fontSize: 20,
+  },
+  listar: {
+    fontSize: 20,
+    textAlign: "center",
+  },
+  orderByContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  picker: {
+    width: '50%',
+  },
+});

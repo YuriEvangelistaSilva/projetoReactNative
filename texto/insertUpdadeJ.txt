@@ -1,0 +1,44 @@
+ async function insertUpdate() {
+    if (name !== '' && plataforms !== '' && gender !== '' && studio !== '' && price !== '') {
+      if (key !== '') {
+        // Atualização se a chave estiver presente
+        db.ref('products').child(key).update({
+          name: name, 
+          plataforms: plataforms,
+          gender: gender, 
+          studio: studio,
+          price: price
+        })
+        Keyboard.dismiss();
+        setSnackbarMessage('Produto alterado!');
+        setSnackbarVisible(true);
+        clearData();
+        setKey('');
+        return;
+      } else {
+        // Inserção se a chave estiver vazia
+        let productsDatabase = await db.ref("products");
+        let productKey = productsDatabase.push().key;
+        productsDatabase.child(productKey).set({
+          name: name,
+          plataforms : plataforms,
+          gender: gender,
+          studio: studio,
+          price: price
+        });
+        setSnackbarMessage('produto inserido!');
+        setSnackbarVisible(true);
+        clearData();
+      }
+    } else {
+      // Se algum campo estiver vazio, ative o estado para mostrar o ícone de aviso temporariamente
+      setShowWarningIcon(true);
+      setTimeout(() => {
+        // Desative o estado após alguns segundos
+        setShowWarningIcon(false);
+      }, 3000); // Tempo em milissegundos
+      // Exiba uma mensagem de erro para o usuário indicando os campos vazios
+      setSnackbarMessage('Preencha todos os campos obrigatórios!');
+      setSnackbarVisible(true);
+    }
+  }

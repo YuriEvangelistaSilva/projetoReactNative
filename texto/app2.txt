@@ -1,0 +1,44 @@
+import React, { useState, useEffect } from 'react'; // Ensure useState and useEffect are imported
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import Menu from './components/menuTab';
+import Login from './components/Login'; // Make sure the path to Login is correct
+import firebase from './services/connectionFirebase';
+
+const theme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: '#F6AA43', // Cor primária
+  },
+};
+
+const Stack = createStackNavigator();
+
+export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = firebase.auth().onAuthStateChanged(user => {
+      setIsLoggedIn(!!user);
+    });
+
+    // Cleanup the subscription on unmount
+    return () => unsubscribe();
+  }, []);
+
+  const changeStatus = (uid) => {
+    setIsLoggedIn(!!uid);
+  };
+
+  return (
+    <NavigationContainer theme={theme}>
+      <Stack.Navigator initialRouteName={isLoggedIn ? "MenuTab" : "Login"}>
+        <Stack.Screen name="Login">
+          {props => <Login {...props} changeStatus={changeStatus} />}
+        </Stack.Screen>
+        <Stack.Screen name="MenuTab" component={Menu} options={{ headerShown: false }} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}

@@ -1,0 +1,410 @@
+import React, { useState, useEffect, useRef } from "react";
+import { View, Text, StyleSheet, ActivityIndicator, TextInput, Picker, FlatList, ScrollView, TouchableOpacity } from "react-native";
+import { Button, IconButton, Menu, MD3LightTheme as DefaultTheme, PaperProvider, Dialog, Portal, Snackbar, Modal } from 'react-native-paper';
+import firebase, { db } from "../services/connectionFirebase";
+import { addDoc, collection, doc, getDocs, deleteDoc, updateDoc } from "firebase/firestore";
+import ListProducts from './listProducts';
+
+const Separator = () => <View style={styles.separator} />;
+
+const theme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: '#F6AA43',
+  },
+};
+
+export default function Products() {
+  const [name, setName] = useState("");
+  const [gender, setGender] = useState("");
+  const [plataforms, setPlataforms] = useState("");
+  const [studio, setStudio] = useState("");
+  const [price, setPrice] = useState("");
+  const [key, setKey] = useState('');
+
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [page, setPage] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [orderBy, setOrderBy] = useState('name');
+  const [visibleTipoDialog, setVisibleTipoDialog] = useState(false);
+  const [showWarningIcon, setShowWarningIcon] = useState(false);
+
+  const snackbarStyle = {
+    backgroundColor: theme.colors.primary,
+    opacity: 0.9,
+  };
+  const snackbarButtonTextStyle = {
+    color: '#FFF',
+  };
+
+  const inputRef = useRef(null);
+
+  const from = page * itemsPerPage;
+  const to = (page + 1) * itemsPerPage;
+  const paginatedProducts = products.slice(from, to);
+
+  useEffect(() => {
+    search();
+  }, []);
+
+  async function search() {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'games'));
+      const productsData = [];
+      querySnapshot.forEach(doc => {
+        productsData.push({ key: doc.id, ...doc.data() });
+      });
+      setProducts(productsData);
+      setLoading(false);
+    } catch (error) {
+      console.error("Erro ao buscar produtos:", error);
+      setSnackbarMessage('Erro ao buscar produtos!');
+      setSnackbarVisible(true);
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    const sortedProducts = [...products].sort((a, b) => {
+      if (a[orderBy] < b[orderBy]) return -1;
+      if (a[orderBy] > b[orderBy]) return 1;
+      return 0;
+    });
+    setProducts(sortedProducts);
+  }, [orderBy]);
+
+  async function insertUpdate() {
+    try {
+      if (name && plataforms && gender && studio && price) {
+        const productsCollectionRef = collection(db, 'games');
+        const productData = {
+          name: name,
+          platforms: plataforms,
+          gender: gender,
+          studio: studio,
+          price: price
+        };
+
+        if (key) {
+          await updateDoc(doc(db, 'games', key), productData);
+          const updatedProducts = products.map(product =>
+            product.key === key ? { ...product, ...productData } : product
+          );
+          setProducts(updatedProducts);
+          setSnackbarMessage('Produto atualizado!');
+        } else {
+          await addDoc(productsCollectionRef, productData);
+          setSnackbarMessage('Produto inserido!');
+        }
+        search();
+        setSnackbarVisible(true);
+        clearData();
+      } else {
+        setSnackbarMessage('Preencha todos os campos obrigatórios!');
+        setSnackbarVisible(true);
+      }
+    } catch (error) {
+      console.error("Erro ao inserir/atualizar produto:", error);
+      setSnackbarMessage('Erro ao inserir/atualizar produto!');
+      setSnackbarVisible(true);
+    }
+  }
+
+  function handleDelete(key) {
+    setSelectedProduct(key);
+    setModalVisible(true);
+  }
+
+  function handleEdit(data) {
+    setKey(data.key);
+    setName(data.name);
+    setPlataforms(data.platforms);
+    setGender(data.gender);
+    setStudio(data.studio);
+    setPrice(data.price);
+  }
+
+  function clearData() {
+    setKey('');
+    setName('');
+    setPlataforms('');
+    setGender('');
+    setStudio('');
+    setPrice('');
+  }
+
+  async function confirmDelete() {
+    try {
+      await deleteDoc(doc(db, 'games', selectedProduct));
+      const updatedProducts = products.filter(item => item.key !== selectedProduct);
+      setProducts(updatedProducts);
+      setVisible(false);
+      setModalVisible(false);
+      setSnackbarMessage('Produto excluído!');
+      setSnackbarVisible(true);
+    } catch (error) {
+      console.error("Erro ao excluir produto:", error);
+      setSnackbarMessage('Erro ao excluir produto!');
+      setSnackbarVisible(true);
+    }
+  }
+
+  const handlePageChange = (pageNumber) => {
+    setPage(pageNumber);
+  };
+
+  const handleOrderByChange = (value) => {
+    setOrderBy(value);
+  };
+
+  return (
+    <PaperProvider theme={theme}>
+      <ScrollView style={styles.container}>
+        <TextInput
+          placeholder="Nome"
+          maxLength={40}
+          style={[styles.input, showWarningIcon && !name && styles.inputWithError]}
+          onChangeText={(texto) => setName(texto)}
+          value={name}
+          ref={inputRef}
+        />
+        <Separator />
+        <TextInput
+          placeholder="Plataformas"
+          style={styles.input}
+          onChangeText={(texto) => setPlataforms(texto)}
+          value={plataforms}
+          ref={inputRef}
+        />
+        <Separator />
+        <TextInput
+          placeholder="Genero"
+          style={styles.input}
+          onChangeText={(texto) => setGender(texto)}
+          value={gender}
+          ref={inputRef}
+        />
+        <Separator />
+        <TextInput
+          placeholder="Studio"
+          style={styles.input}
+          onChangeText={(texto) => setStudio(texto)}
+          value={studio}
+          ref={inputRef}
+        />
+        <Separator />
+        <TextInput
+          placeholder="Preço"
+          style={styles.input}
+          onChangeText={(texto) => setPrice(texto)}
+          value={price}
+          ref={inputRef}
+        />
+        <Separator />
+        <Button mode="contained" onPress={insertUpdate}>Salvar</Button>
+        <Separator />
+        <View style={styles.orderByContainer}>
+          <Text style={styles.listar}>Listar Produtos</Text>
+          <Picker
+            selectedValue={orderBy}
+            style={styles.picker}
+            onValueChange={(itemValue) => handleOrderByChange(itemValue)}
+            itemStyle={styles.pickerItem}
+          >
+            <Picker.Item label="Ordenar por Nome" value="name" />
+            <Picker.Item label="Ordenar por Plataforma" value="platforms" />
+            <Picker.Item label="Ordenar por Genero" value="gender" />
+            <Picker.Item label="Ordenar por Tipo" value="studio" />
+            <Picker.Item label="Ordenar por Preço" value="price" />
+          </Picker>
+        </View>
+        {loading ? (
+          <ActivityIndicator color="#121212" size={45} />
+        ) : (
+          <FlatList
+            keyExtractor={item => item.key}
+            data={products}
+            renderItem={({ item }) => (
+              <ListProducts data={item} deleteItem={handleDelete} editItem={handleEdit} />
+            )}
+          />
+        )}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => {
+            setModalVisible(false);
+          }}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalText}>Tem certeza que deseja excluir este item?</Text>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.deleteButtonNo]}
+                  onPress={() => {
+                    setModalVisible(false);
+                  }}>
+                  <Text style={styles.modalButtonText}>Nao</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.deleteButtonYes]}
+                  onPress={confirmDelete}>
+                  <Text style={styles.modalButtonText}>Sim</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        style={snackbarStyle}
+        action={{
+          label: 'Fechar',
+          onPress: () => setSnackbarVisible(false),
+          textStyle: snackbarButtonTextStyle,
+        }}
+      >
+        {snackbarMessage}
+      </Snackbar>
+    </PaperProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#fff',
+  },
+  input: {
+    height: 40,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    marginBottom: 10,
+    paddingLeft: 10,
+  },
+  inputWithError: {
+    borderColor: 'red',
+  },
+  separator: {
+    marginVertical: 10,
+  },
+  orderByContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  listar: {
+    fontSize: 5,
+    fontWeight: 'bold',
+  },
+  picker: {
+    height: 50,
+    width: 100,
+    borderRadius: 10,
+  },
+  pickerItem: {
+    height: 44,
+  },
+  pikerOrder: {
+    height: 50,
+    width: 100,
+  },
+  separator: {
+    marginVertical: 5,
+  },
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3ea6f2',
+    borderWidth: 0.5,
+    height: 40,
+    justifyContent: 'center',
+    borderRadius: 5,
+    marginLeft: 10,
+    marginRight: 10,
+  },
+
+  buttonImageIconStyle: {
+    padding: 10,
+    margin: 5,
+    height: 25,
+    width: 25,
+    resizeMode: 'stretch',
+  },
+
+  buttonTextStyle: {
+    color: '#fff',
+    marginBottom: 4,
+    textAlign: 'center',
+    fontSize: 20
+
+  },
+
+  buttonIconSeparatorStyle: {
+    backgroundColor: '#fff',
+    width: 1,
+    height: 20,
+  },
+
+  listar: {
+    fontSize: 20,
+    textAlign: 'center',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    backgroundColor: "#4682B4", // Cor azul aço
+    padding: 20,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  modalText: {
+    color: "#FFFFFF",
+    marginBottom: 10,
+    alignItems: "center",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  modalButton: {
+    marginHorizontal: 10,
+    padding: 10,
+    borderRadius: 6,
+    minWidth: 100,
+    alignItems: "center",
+  },
+  deleteButtonYes: {
+    backgroundColor: "#32CD32",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
+  },
+  deleteButtonNo: {
+    backgroundColor: "#FF0000",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
+  },
+  modalButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+  },
+});
